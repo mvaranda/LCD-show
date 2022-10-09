@@ -1,4 +1,16 @@
 
+// 
+// Copyrights 2022, Varanda Labs Inc.
+//
+// License: GPL-3
+//
+// refs:
+//     https://learn.watterott.com/hats/rpi-display/fbtft-install/
+//     events: https://www.kernel.org/doc/html/v4.15/input/input.html
+//             see with either "cat /dev/input/event2 |xxd" or evtest
+//             code: https://github.com/Robin329/evtest/blob/master/evtest.c
+//
+
 #include <stdio.h>
 #include <syslog.h>
 #include <sys/fcntl.h>
@@ -83,21 +95,26 @@ int main(int argc, char **argv) {
     }
 
     cairo_surface_t *image = cairo_image_surface_create_from_png (argv[1]);
-    printf("Cairo original format: %d\n", cairo_image_surface_get_format(image));
+ 
+    cairo_format_t fmt = cairo_image_surface_get_format(image);
+    if (fmt != CAIRO_FORMAT_ARGB32) {
+        printf("expecting CAIRO_FORMAT_ARGB32 format.\n");
+        return 1;
+    }
+
     int width = cairo_image_surface_get_width (image);
     int height = cairo_image_surface_get_height (image);
     printf("width = %d, heigth = %d\n", width, height);
-    cairo_surface_t *  rgb565_img = cairo_surface_create_similar_image  (image,
-                                                         CAIRO_FORMAT_RGB16_565,
-                                                         width,
-                                                         height);
-    printf("Cairo converted format: %d\n", cairo_image_surface_get_format(rgb565_img));
-    width = cairo_image_surface_get_width (rgb565_img);
-    height = cairo_image_surface_get_height (rgb565_img);
-    printf("converted rgb565_img: width = %d, heigth = %d\n", width, height);
+
+    buf = (char *) malloc(width * height * 2);
+    if (!buf) {
+        printf("no memo.\n");
+        cairo_surface_destroy(image);
+        return 1;
+    }
 
     uint32_t * argb32 = (uint32_t *) cairo_image_surface_get_data(image);
-    uint16_t * rgb16 = (uint16_t *) cairo_image_surface_get_data(rgb565_img);
+    uint16_t * rgb16 = (uint16_t *) buf;
     uint16_t v = 0;
     for (int i = 0; i < width * height; i++) {
         v = (*argb32 &  0b00000000111110000000000000000000) >> 8;
@@ -107,13 +124,12 @@ int main(int argc, char **argv) {
         argb32++;
     }
 
-    buf = cairo_image_surface_get_data(rgb565_img);
     printf("buf = %p\n", buf);
 
     printf("open fb\n");
     if (fbwriter_open(FB_DEV_NAME)) {
         printf("Could not open fb\n");
-        cairo_surface_destroy(rgb565_img);
+        free(buf);
         cairo_surface_destroy(image);
         return 1;
     }
@@ -135,7 +151,7 @@ int main(int argc, char **argv) {
 #endif
     fbwriter_close();
 
-    cairo_surface_destroy(rgb565_img);
+    free(buf);
     cairo_surface_destroy(image);
     return 0;
 }

@@ -1,3 +1,3 @@
 gcc fbwriter.c -DFB_TEST  -o fb_test `pkg-config --libs --cflags cairo`
-./fb logo_480_320.png
+./fb_test logo_480_320.png
  
