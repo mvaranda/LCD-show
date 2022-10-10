@@ -155,4 +155,4 @@ int main(int argc, char **argv) {
     cairo_surface_destroy(image);
     return 0;
 }
-#endif
+#endif // #ifdef FB_TEST
